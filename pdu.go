@@ -1,11 +1,12 @@
 package pdu // import "github.com/webdeskltd/pdu"
 
 //import "github.com/webdeskltd/debug"
-import "github.com/webdeskltd/log"
+//import "github.com/webdeskltd/log"
 import (
 	"bytes"
 	"container/list"
 	"io"
+	"log"
 	"runtime"
 	"time"
 )
@@ -66,7 +67,7 @@ func (pdu *impl) Worker() {
 			go func(b *bytes.Buffer) {
 				defer pdu.doCount.Done()
 				if err = pdu.Decode(b); err != nil {
-					log.Errorf("Error decode: %s", err.Error())
+					log.Printf("Error decode: %s", err.Error())
 				}
 			}(buf)
 			//		case <-tmr.C:
