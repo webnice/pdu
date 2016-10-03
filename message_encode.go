@@ -198,8 +198,22 @@ func (msg *message) getUdh(i uint8) (ret *bytes.Buffer) {
 	return
 }
 
+// Calculate CSA length in octets
+func (msg *message) getScaLength() (ret int) {
+	if msg.TpScaLen == 0 {
+		ret = 1
+	} else {
+		//		ret = int(msg.TpScaLen) * 7 / 8
+		//		if ret*8/7 < int(msg.TpScaLen) {
+		//			ret++
+		//		}
+		ret = 8
+	}
+	return
+}
+
 func (msg *message) Encode() (ret []string) {
-	var sca, duHead string
+	var sca, duHead, out string
 	var i uint8
 
 	sca = strings.ToUpper(msg.makeSca().String())
@@ -214,14 +228,24 @@ func (msg *message) Encode() (ret []string) {
 
 	// Single SMS
 	if msg.SmsDataLength <= _MaxBytes {
-		ret = append(ret, sca+duHead+strings.ToUpper(msg.makeUdAll().String()))
+		out = sca + duHead + strings.ToUpper(msg.makeUdAll().String())
+		out = fmt.Sprintf("AT+CMGS=%d\r\n%s",
+			len(out)/2-msg.getScaLength(),
+			out,
+		)
+		ret = append(ret, out)
 		return
 	}
 	msg.makeUdh()
 
 	// Get all parts
 	for i = 0; i < msg.UdhiNumberParts; i++ {
-		ret = append(ret, sca+duHead+strings.ToUpper(msg.getUdh(i).String()))
+		out = sca + duHead + strings.ToUpper(msg.getUdh(i).String())
+		out = fmt.Sprintf("AT+CMGS=%d\r\n%s",
+			len(out)/2-msg.getScaLength(),
+			out,
+		)
+		ret = append(ret, out)
 	}
 
 	return
