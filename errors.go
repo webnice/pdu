@@ -1,5 +1,7 @@
 package pdu // import "github.com/webdeskltd/pdu"
 
+//import "github.com/webdeskltd/debug"
+//import "github.com/webdeskltd/log"
 import (
 	"fmt"
 )

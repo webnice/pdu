@@ -126,6 +126,12 @@ func (msg *message) loadMti() {
 	case 3:
 		msg.MtiSmsType = TypeSmsReserved
 	}
+	if msg.MtiSmsType != TypeSmsStatusReport {
+		return
+	}
+	// Status report message ID
+	msg.TpMr = msg.DataSource[msg.Lp]
+	msg.Lp++
 }
 
 // Load Data coding scheme TP-SCTS
@@ -170,8 +176,8 @@ func (msg *message) loadUd() {
 
 }
 
-// Load The service centre time stamp (TP-SCTS)
-func (msg *message) loadScts() {
+// Load Time stamp
+func (msg *message) loadTimeStamp() time.Time {
 	var buf []byte
 	var str string
 	var y, m, d, H, M, S, t int
@@ -185,7 +191,7 @@ func (msg *message) loadScts() {
 	M, msg.Err = strconv.Atoi(str[8:10])
 	S, msg.Err = strconv.Atoi(str[10:12])
 	t, msg.Err = strconv.Atoi(str[12:14])
-	msg.ServiceCentreTimeStamp = time.Date(y+2000, time.Month(m), d, H, M, S, 0, time.UTC).Add(time.Hour * time.Duration(t)).In(time.Local)
+	return time.Date(y+2000, time.Month(m), d, H, M, S, 0, time.UTC).Add(time.Hour * time.Duration(t)).In(time.Local)
 }
 
 // Load user data header information from user data
@@ -238,6 +244,53 @@ func (msg *message) decodeUD() {
 	}
 }
 
+// Load specified fields status report messages
+func (msg *message) loadStatusReport() {
+	msg.TpSt = msg.DataSource[msg.Lp]
+	msg.Lp++
+	switch msg.TpSt {
+	case 0x00:
+		msg.TpStType = StatusDelivered
+	case 0x01:
+		msg.TpStType = StatusForwarded
+	case 0x02:
+		msg.TpStType = StatusReplaced
+	case 0x20:
+		msg.TpStType = StatusCongestion
+	case 0x21:
+		msg.TpStType = StatusRecipientBusy
+	case 0x22:
+		msg.TpStType = StatusRecipientNoResponse
+	case 0x23:
+		msg.TpStType = StatusServiceRejected
+	case 0x24:
+		msg.TpStType = StatusQosNotAvailableTrying
+	case 0x25:
+		msg.TpStType = StatusRecipientError
+	case 0x40:
+		msg.TpStType = StatusRpcError
+	case 0x41:
+		msg.TpStType = StatusIncompatible
+	case 0x42:
+		msg.TpStType = StatusConnectionRejected
+	case 0x43:
+		msg.TpStType = StatusNotObtainable
+	case 0x44:
+		msg.TpStType = StatusQosNotAvailable
+	case 0x45:
+		msg.TpStType = StatusNoINAvailable
+	case 0x46:
+		msg.TpStType = StatusMessageExpired
+	case 0x47:
+		msg.TpStType = StatusMessageDeletedBySender
+	case 0x48:
+		msg.TpStType = StatusMessageDeletedBySmsc
+	case 0x49:
+		msg.TpStType = StatusDoesNotExist
+	}
+	msg.End = true
+}
+
 // Scan Source data scanning
 func (msg *message) Scan(src *bytes.Buffer) {
 	msg.findCommand(src)
@@ -251,11 +304,23 @@ func (msg *message) Scan(src *bytes.Buffer) {
 	msg.loadTpSca()
 	msg.loadMti()
 	msg.loadTpOa()
-	msg.loadPid()
-	msg.loadDsc()
-	msg.loadScts()
-	msg.loadUd()
-	msg.decodeUD()
+
+	// Report SMS
+	if msg.MtiSmsType == TypeSmsStatusReport {
+		// The service centre time stamp (TP-SCTS)
+		msg.ServiceCentreTimeStamp = msg.loadTimeStamp()
+		// Discharge Time - The TP-DT field indicates the time and date associated with a particular TP-ST outcome
+		msg.TpDischargeTime = msg.loadTimeStamp()
+		msg.loadStatusReport()
+	} else {
+		// Normal SMS
+		msg.loadPid()
+		msg.loadDsc()
+		// The service centre time stamp (TP-SCTS)
+		msg.ServiceCentreTimeStamp = msg.loadTimeStamp()
+		msg.loadUd()
+		msg.decodeUD()
+	}
 
 	// Clean
 	msg.DataSource = []byte{}

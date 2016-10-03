@@ -2,7 +2,6 @@ package encoders // import "github.com/webdeskltd/pdu/encoders"
 
 //import "github.com/webdeskltd/debug"
 //import "github.com/webdeskltd/log"
-import ()
 
 // EncodeSemiOctet interface
 type EncodeSemiOctet interface {

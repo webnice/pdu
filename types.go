@@ -57,6 +57,45 @@ const (
 	NumericPlanInternational = NumberNumericPlan(`International`)
 	// NumericPlanUnknown Unknown
 	NumericPlanUnknown = NumberNumericPlan(`Unknown`)
+
+	// StatusDelivered Short message delivered successfully
+	StatusDelivered = StatusReport(`Short message delivered successfully`)
+	// StatusForwarded Forwarded, but status unknown
+	StatusForwarded = StatusReport(`Forwarded, but status unknown`)
+	// StatusReplaced Replaced
+	StatusReplaced = StatusReport(`Replaced`)
+	// StatusCongestion Congestion, still trying
+	StatusCongestion = StatusReport(`Congestion, still trying`)
+	// StatusRecipientBusy Recipient busy, still trying
+	StatusRecipientBusy = StatusReport(`Recipient busy, still trying`)
+	// StatusRecipientNoResponse No response recipient, still trying
+	StatusRecipientNoResponse = StatusReport(`No response recipient, still trying`)
+	// StatusServiceRejected Service rejected, still trying
+	StatusServiceRejected = StatusReport(`Service rejected, still trying`)
+	// StatusQosNotAvailable QOS not available, still trying
+	StatusQosNotAvailableTrying = StatusReport(`QOS not available, still trying`)
+	// StatusRecipientError Recipient error, still trying
+	StatusRecipientError = StatusReport(`Recipient error, still trying`)
+	// StatusRpcError RPC Error
+	StatusRpcError = StatusReport(`RPC Error`)
+	// StatusIncompatible Incompatible destination
+	StatusIncompatible = StatusReport(`Incompatible destination`)
+	// StatusConnectionRejected Connection rejected
+	StatusConnectionRejected = StatusReport(`Connection rejected`)
+	// StatusNotObtainable Not obtainable
+	StatusNotObtainable = StatusReport(`Not obtainable`)
+	// StatusQosNotAvailable QOS not available
+	StatusQosNotAvailable = StatusReport(`QOS not available`)
+	// StatusNoINAvailable No internetworking available
+	StatusNoINAvailable = StatusReport(`No internetworking available`)
+	// StatusMessageExpired Message expired
+	StatusMessageExpired = StatusReport(`Message expired`)
+	// StatusMessageDeletedBySender Message deleted by sender
+	StatusMessageDeletedBySender = StatusReport(`Message deleted by sender`)
+	// StatusMessageDeletedBySmsc Message deleted by SMSC
+	StatusMessageDeletedBySmsc = StatusReport(`Message deleted by SMSC`)
+	// StatusDoesNotExist Does not exist
+	StatusDoesNotExist = StatusReport(`Does not exist`)
 )
 
 var (
@@ -131,6 +170,10 @@ type Message interface {
 	Data() string
 	// DataParts The number of SMS (parts)
 	DataParts() int
+	// DischargeTime Status report field TP-DT - Discharge Time
+	DischargeTime() time.Time
+	// ReportStatus Status report field TP-ST
+	ReportStatus() StatusReport
 }
 
 // Decoded sms message
@@ -153,9 +196,10 @@ type message struct {
 	MtiSource              byte              // Message Type indicator (MTI)
 	MtiSmsType             SmsType           // MTI bits number 0, 1 - Message Type indicator (TP-MTI)
 	MtiNoMoreMessageToSend bool              // MTI bit number 2 - More messages to send (TP-MMS). =true - No more messages to send in SC
-	MtiStatusReport        bool              // MTI bit number 5 - Status report indication (TP-SRI)
+	MtiStatusReport        bool              // MTI bit number 5 - Status report indication (TP-SRI) SRR
 	MtiUdhiFound           bool              // MTI bit number 6 - TP-UDHI present. =true - User Data include User Data Header
 	MtiReplyPath           bool              // MTI bit number 7 - Reply path (TP-RP). =true - A response is requested.
+	TpMr                   uint8             // Status report field TP-MR
 	TpRdRejectDuplicates   bool              // if true - reject duplicates (outgoing)
 	TpOaLen                uint8             // Length of the Originating Address
 	TpOaTypeSource         uint8             // Type of Originating Address
@@ -167,6 +211,7 @@ type message struct {
 	DscFlash               bool              // Message is flash
 	DscUSC2                bool              // Message encoded as UCS2
 	ServiceCentreTimeStamp time.Time         // Service centre time stamp
+	TpDischargeTime        time.Time         // Status report field TP-DT - Discharge Time
 	SmsDataSourceLength    uint8             // User data length
 	SmsDataSource          []byte            // User data source
 	SmsDataLength          int               // Data length
@@ -178,6 +223,8 @@ type message struct {
 	UdhiIedID              uint16            // User data header message ID
 	UdhiNumberParts        uint8             // User data header. Number of parts in the message
 	UdhiSequenceID         uint8             // User data header. The sequence number of the message
+	TpSt                   uint8             // Status report field TP-ST
+	TpStType               StatusReport      // Status report field TP-ST as type
 }
 
 // FnDecoder Function call after new message decoded
@@ -223,6 +270,12 @@ type countParts struct {
 	NumberParts uint8
 	Count       uint8
 }
+
+// StatusReport description
+type StatusReport string
+
+// String Convert to string
+func (sr StatusReport) String() string { return string(sr) }
 
 // Encode Data structure to encoder message
 type Encode struct {

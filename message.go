@@ -74,3 +74,9 @@ func (msg *message) DataParts() (ret int) {
 	}
 	return
 }
+
+// DischargeTime Status report field TP-DT - Discharge Time
+func (msg *message) DischargeTime() time.Time { return msg.TpDischargeTime }
+
+// ReportStatus Status report field TP-ST
+func (msg *message) ReportStatus() StatusReport { return msg.TpStType }

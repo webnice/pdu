@@ -2,7 +2,6 @@ package encoders // import "github.com/webdeskltd/pdu/encoders"
 
 //import "github.com/webdeskltd/debug"
 //import "github.com/webdeskltd/log"
-import ()
 
 // New7Bit New 7bit encoder object and return interface
 func New7Bit() Encode7bit {

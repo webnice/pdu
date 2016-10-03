@@ -159,15 +159,27 @@ func (msg *message) makeUdh() {
 // UDH = UDHL + HL + IEI + IEDL + RefID + Parts + Part number
 func (msg *message) getUdh(i uint8) (ret *bytes.Buffer) {
 	var size int
+	var uthl byte
 	ret = bytes.NewBufferString(``)
 	size = _MaxBytes - int(msg.UdhiLength) - 1
 	msg.Lp = size * int(i)
 	// UDHL
-	if len(msg.SmsDataSource[msg.Lp:]) >= size {
-		ret.WriteString(hex.EncodeToString([]byte{byte(size + int(msg.UdhiLength) + 1)}))
+	if msg.DscUSC2 {
+		// UTF-16
+		if len(msg.SmsDataSource[msg.Lp:]) >= size {
+			uthl = byte(size + int(msg.UdhiLength) + 1)
+		} else {
+			uthl = byte(len(msg.SmsDataSource[msg.Lp:]) + int(msg.UdhiLength) + 1)
+		}
 	} else {
-		ret.WriteString(hex.EncodeToString([]byte{byte(len(msg.SmsDataSource[msg.Lp:]) + int(msg.UdhiLength) + 1)}))
+		// 7-bit
+		if len(msg.SmsDataSource[msg.Lp:]) >= size {
+			uthl = byte((size + int(msg.UdhiLength) + 1) * 8 / 7)
+		} else {
+			uthl = byte((len(msg.SmsDataSource[msg.Lp:]) + int(msg.UdhiLength) + 1) * 8 / 7)
+		}
 	}
+	ret.WriteString(hex.EncodeToString([]byte{uthl}))
 	// HL
 	ret.WriteString(hex.EncodeToString([]byte{byte(msg.UdhiLength)}))
 	// IEI

@@ -5,6 +5,7 @@ package pdu // import "github.com/webdeskltd/pdu"
 import (
 	//"encoding/hex"
 	"time"
+	uc "unicode"
 
 	"github.com/webdeskltd/pdu/encoders"
 
@@ -55,6 +56,17 @@ func (pdu *impl) setTpOa(m *message, addr string) (err error) {
 	return
 }
 
+// Check all symbols in message
+func (pdu *impl) checkUSC2Symbols(message string) (ret bool) {
+	var sym rune
+	for _, sym = range message {
+		if sym > uc.MaxASCII || !uc.IsPrint(sym) {
+			ret = true
+		}
+	}
+	return
+}
+
 // Encoder SMS encoder
 func (pdu *impl) Encoder(inp Encode) (ret []string, err error) {
 	var m *message
@@ -73,6 +85,11 @@ func (pdu *impl) Encoder(inp Encode) (ret []string, err error) {
 	m.DscFlash = inp.Flash
 	m.MtiReplyPath = inp.StatusReportRequest
 	m.TpRdRejectDuplicates = inp.RejectDuplicates
+
+	// Set UTF-16 encode if found any non ascii symbol
+	if !m.DscUSC2 {
+		m.DscUSC2 = pdu.checkUSC2Symbols(inp.Message)
+	}
 
 	// Set originating address number
 	if err = pdu.setTpOa(m, inp.Address); err != nil {
