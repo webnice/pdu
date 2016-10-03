@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const _MaxBytes = int(140)
+
 const (
 	// TypeSmsDeliver Incomming SMS: SMS-DELIVER
 	TypeSmsDeliver = SmsType(0x0)
@@ -57,17 +59,32 @@ const (
 	NumericPlanUnknown = NumberNumericPlan(`Unknown`)
 )
 
-var rexDataWithCommand = regexp.MustCompile(`^\+([0-9A-Za-z]+)\: (\d+),([^,]*),(\d+)[\t\n\f\r ]+`)
-var rexDataWithoutCommand = regexp.MustCompile(`([0-9A-Fa-f]+)$`)
+var (
+	rexDataWithCommand    = regexp.MustCompile(`^\+([0-9A-Za-z]+)\: (\d+),([^,]*),(\d+)[\t\n\f\r ]+`)
+	rexDataWithoutCommand = regexp.MustCompile(`([0-9A-Fa-f]+)$`)
+	rexNumeric            = regexp.MustCompile(`^([0-9]+)$`)
+)
 
 // Interface is an interface
 type Interface interface {
+	// Done Waiting for processing all incoming messages
+	Done()
 	// Decoder Register function is invoked when decoding a new message
 	Decoder(fn FnDecoder) Interface
 	// Writer Return writer
 	Writer() io.Writer
-	// Done Waiting for processing all incoming messages
-	Done()
+	// Encoder SMS encoder
+	Encoder(Encode) ([]string, error)
+}
+
+// is an implementation
+type impl struct {
+	doCloseUp         chan bool          // Begin shutdown decoder goroutine
+	doCloseDone       sync.WaitGroup     // Sync/wait when goroutine is running
+	doCount           sync.WaitGroup     // Consideration received and processed messages
+	Dec               chan *bytes.Buffer // Channel for decoder
+	DecFn             FnDecoder          // Function call after new message decoded
+	IncomleteMessages *list.List         // Temporary storage of partially received SMS messages
 }
 
 // Message SMS message
@@ -116,16 +133,6 @@ type Message interface {
 	DataParts() int
 }
 
-// is an implementation
-type impl struct {
-	doCloseUp         chan bool          // Begin shutdown decoder goroutine
-	doCloseDone       sync.WaitGroup     // Sync/wait when goroutine is running
-	doCount           sync.WaitGroup     // Consideration received and processed messages
-	Dec               chan *bytes.Buffer // Channel for decoder
-	DecFn             FnDecoder          // Function call after new message decoded
-	IncomleteMessages *list.List         // Temporary storage of partially received SMS messages
-}
-
 // Decoded sms message
 type message struct {
 	Dir                    MessageDirection  // Message direction
@@ -149,6 +156,7 @@ type message struct {
 	MtiStatusReport        bool              // MTI bit number 5 - Status report indication (TP-SRI)
 	MtiUdhiFound           bool              // MTI bit number 6 - TP-UDHI present. =true - User Data include User Data Header
 	MtiReplyPath           bool              // MTI bit number 7 - Reply path (TP-RP). =true - A response is requested.
+	TpRdRejectDuplicates   bool              // if true - reject duplicates (outgoing)
 	TpOaLen                uint8             // Length of the Originating Address
 	TpOaTypeSource         uint8             // Type of Originating Address
 	TpOaType               NumberType        // Originating Address type
@@ -161,8 +169,8 @@ type message struct {
 	ServiceCentreTimeStamp time.Time         // Service centre time stamp
 	SmsDataSourceLength    uint8             // User data length
 	SmsDataSource          []byte            // User data source
-	SmsDataLength          int               // Decoded user data length
-	SmsData                string            // Decoded user data
+	SmsDataLength          int               // Data length
+	SmsData                string            // data body in string
 	UdhiLength             uint8             // User data header length
 	UdhiSource             []byte            // User data header as is
 	UdhiIei                uint8             // User data header information element identifier
@@ -214,4 +222,22 @@ type NumberNumericPlan string
 type countParts struct {
 	NumberParts uint8
 	Count       uint8
+}
+
+// Encode Data structure to encoder message
+type Encode struct {
+	// Ucs2 Encode type. =true-Encode UTF16. =false-Encode 7bit
+	Ucs2 bool
+	// Flash =true-SMS is flash
+	Flash bool
+	// Smsc Service Centre Address number
+	Sca string
+	// Originating Address number
+	Address string
+	// Message data
+	Message string
+	// RejectDuplicates if true - reject duplicates
+	RejectDuplicates bool
+	// StatusReportRequest Status report request
+	StatusReportRequest bool
 }

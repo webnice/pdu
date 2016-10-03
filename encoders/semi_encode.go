@@ -4,8 +4,7 @@ package encoders // import "github.com/webdeskltd/pdu/encoders"
 //import "github.com/webdeskltd/log"
 import ()
 
-// Packs the given numerical chunks in a semi-octet
-// representation as described in 3GPP TS 23.040.
+// Packs the given numerical chunks in a semi-octet representation as described in 3GPP TS 23.040.
 func (semi *implsemi) Encode(chunks ...uint64) []byte {
 	var digits = make([]uint8, 0, len(chunks))
 	for _, c := range chunks {
