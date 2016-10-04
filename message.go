@@ -37,7 +37,7 @@ func (msg *message) ServiceCentreTime() time.Time { return msg.ServiceCentreTime
 func (msg *message) Type() SmsType { return msg.MtiSmsType }
 
 // IsStatusReport Status report indication (TP-SRI)
-func (msg *message) IsStatusReport() bool { return msg.MtiStatusReport }
+func (msg *message) IsStatusReport() bool { return msg.MtiSmsType == TypeSmsStatusReport }
 
 // Reply path (TP-RP) if =true-A response is requested
 func (msg *message) IsReplyPath() bool { return msg.MtiReplyPath }
