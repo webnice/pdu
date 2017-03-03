@@ -1,7 +1,7 @@
-package pdu // import "github.com/webdeskltd/pdu"
+package pdu
 
-//import "github.com/webdeskltd/debug"
-//import "github.com/webdeskltd/log"
+//import "gopkg.in/webnice/debug.v1"
+//import "gopkg.in/webnice/log.v2"
 import (
 	"bytes"
 	"encoding/hex"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webdeskltd/pdu/encoders"
+	"gopkg.in/webnice/pdu.v1/encoders"
 )
 
 // Make SCA

@@ -9,10 +9,10 @@
 //   http://www.netlab.linkpc.net/wiki/ru:hardware:huawei:e3272
 //   http://alex-exe.ru/radio/wireless/gsm-sim900-at-command/
 
-package pdu // import "github.com/webdeskltd/pdu"
+package pdu
 
-//import "github.com/webdeskltd/debug"
-//import "github.com/webdeskltd/log"
+//import "gopkg.in/webnice/debug.v1"
+//import "gopkg.in/webnice/log.v2"
 import (
 	"bytes"
 	"container/list"
