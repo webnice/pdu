@@ -80,3 +80,6 @@ func (msg *message) DischargeTime() time.Time { return msg.TpDischargeTime }
 
 // ReportStatus Status report field TP-ST
 func (msg *message) ReportStatus() StatusReport { return msg.TpStType }
+
+// MessageReference Status report field TP-MR
+func (msg *message) MessageReference() uint8 { return msg.TpMr }

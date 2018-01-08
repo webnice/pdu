@@ -174,6 +174,9 @@ type Message interface {
 	DischargeTime() time.Time
 	// ReportStatus Status report field TP-ST
 	ReportStatus() StatusReport
+
+	// MessageReference in report message reference
+	MessageReference() uint8
 }
 
 // Decoded sms message
