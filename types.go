@@ -175,7 +175,7 @@ type Message interface {
 	// ReportStatus Status report field TP-ST
 	ReportStatus() StatusReport
 
-	//MessageReference in report message reference
+	// MessageReference in report message reference
 	MessageReference() uint8
 }
 
