@@ -5,6 +5,7 @@ package pdu
 import (
 	"bytes"
 	"container/list"
+	"fmt"
 	"io"
 	"time"
 )
@@ -24,7 +25,7 @@ func (pdu *impl) Write(in []byte) (l int, err error) {
 }
 
 // CheckIncomleteMessages Check stored messages
-func (pdu *impl) CheckIncomleteMessages() {
+func (pdu *impl) CheckIncomleteMessages(isClose bool) {
 	var m map[uint16]*countParts
 	var ok bool
 	var i uint16
@@ -34,6 +35,10 @@ func (pdu *impl) CheckIncomleteMessages() {
 	m = make(map[uint16]*countParts)
 	for elm = pdu.IncomleteMessages.Front(); elm != nil; elm = elm.Next() {
 		var item = elm.Value.(*message)
+		if isClose {
+			item.Err = fmt.Errorf("All parts of the message didn't come")
+			item.End = true
+		}
 		if _, ok = m[item.UdhiIedID]; ok {
 			m[item.UdhiIedID].Count += 1
 		} else {
@@ -43,10 +48,11 @@ func (pdu *impl) CheckIncomleteMessages() {
 			}
 		}
 	}
-
 	// Check and paste together
 	for i = range m {
 		if m[i].Count == m[i].NumberParts {
+			pdu.MessagePasteTogether(i)
+		} else if isClose {
 			pdu.MessagePasteTogether(i)
 		}
 	}
@@ -56,28 +62,33 @@ func (pdu *impl) CheckIncomleteMessages() {
 func (pdu *impl) MessagePasteTogether(id uint16) {
 	var m *message
 	var elm *list.Element
+	var del []*list.Element
 	var elms []*message
 	var count, max uint8
+	var i int
 
 	for elm = pdu.IncomleteMessages.Front(); elm != nil; elm = elm.Next() {
 		var item = elm.Value.(*message)
 		if item.UdhiIedID == id {
 			elms = append(elms, item)
+			del = append(del, elm)
 		}
 	}
-
 	// Find first
 	for i := range elms {
-		if elms[i].UdhiSequenceID == 1 && m == nil {
+		if elms[i].UdhiSequenceID == 1 && m == nil || elms[i].Err != nil && elms[i].End {
 			m = elms[i]
 			max = m.UdhiNumberParts
 			count++
 		}
 	}
-
 	// By order append sms body
 	for {
-		for i := range elms {
+		for i = range elms {
+			if elms[i].Err != nil && elms[i].End {
+				count = max
+				break
+			}
 			if elms[i].UdhiSequenceID == count+1 {
 				count++
 				m.SmsData += elms[i].SmsData
@@ -92,11 +103,16 @@ func (pdu *impl) MessagePasteTogether(id uint16) {
 	}
 	m.End = true
 	pdu.DecFn(m)
+	// Delete all messages from IncomleteMessages list by UdhiIedID
+	for i = range del {
+		pdu.IncomleteMessages.Remove(del[i])
+	}
 }
 
 // Decode source data to message
 func (pdu *impl) Decode(src *bytes.Buffer) (err error) {
 	var m *message
+
 	defer func() {
 		if e := recover(); err != nil {
 			err = e.(error)
@@ -109,9 +125,10 @@ func (pdu *impl) Decode(src *bytes.Buffer) (err error) {
 	m.Scan(src)
 	if !m.Complete() && m.Err == nil {
 		pdu.IncomleteMessages.PushBack(m)
-		pdu.CheckIncomleteMessages()
+		pdu.CheckIncomleteMessages(false)
 		return
 	}
 	pdu.DecFn(m)
+
 	return
 }

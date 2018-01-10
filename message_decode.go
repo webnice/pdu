@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	runtimeDebug "runtime/debug"
 	"strconv"
 	"time"
 
@@ -152,12 +153,24 @@ func (msg *message) loadUd() {
 	msg.SmsDataSourceLength = msg.DataSource[msg.Lp]
 	msg.Lp++
 
+	defer func() {
+		if e := recover(); e != nil {
+			msg.Err = fmt.Errorf("Catch panic: %s\nStack is:\n%s", e.(error), string(runtimeDebug.Stack()))
+			msg.End = true
+		}
+	}()
+
 	switch msg.DscUSC2 {
 	case true:
 		// UTF-16
 		pe = int(msg.SmsDataSourceLength) + msg.Lp
 		if pe > len(msg.DataSource) {
 			msg.Err = fmt.Errorf("Message is corrupted. User data is too short")
+			msg.End = true
+			return
+		}
+		if len(msg.DataSource) < msg.Lp || len(msg.DataSource) < pe {
+			msg.Err = fmt.Errorf("User data is corrupted. Expected data length %d, actual data length is %d", pe, len(msg.DataSource))
 			msg.End = true
 			return
 		}
@@ -170,6 +183,11 @@ func (msg *message) loadUd() {
 			dl = float64(int64(dl)) + 1
 		}
 		pe = msg.Lp + int(dl)
+		if len(msg.DataSource) < msg.Lp || len(msg.DataSource) < pe {
+			msg.Err = fmt.Errorf("User data is corrupted. Expected data length %d, actual data length is %d", pe, len(msg.DataSource))
+			msg.End = true
+			return
+		}
 		msg.SmsDataSource = msg.DataSource[msg.Lp:pe]
 		msg.Lp += int(dl)
 	}
@@ -181,6 +199,14 @@ func (msg *message) loadTimeStamp() time.Time {
 	var buf []byte
 	var str string
 	var y, m, d, H, M, S, t int
+
+	defer func() {
+		if e := recover(); e != nil {
+			msg.Err = fmt.Errorf("Service Centre Time Stamp (TP-SCTS) is incorrect. Expected data length 12, actual length is %d", len(str))
+			msg.End = true
+		}
+	}()
+
 	buf = msg.DataSource[msg.Lp : msg.Lp+7]
 	msg.Lp += 7
 	str = encoders.NewSemiOctet().DecodeAddress(buf)
@@ -198,6 +224,9 @@ func (msg *message) loadTimeStamp() time.Time {
 func (msg *message) loadUdhi() {
 	var pe, lp int
 	if !msg.MtiUdhiFound {
+		return
+	}
+	if len(msg.SmsDataSource) == 0 {
 		return
 	}
 	msg.UdhiLength = msg.SmsDataSource[lp]
@@ -228,6 +257,12 @@ func (msg *message) loadUdhi() {
 
 // Decode loaded user data
 func (msg *message) decodeUD() {
+	defer func() {
+		if e := recover(); e != nil {
+			msg.Err = fmt.Errorf("Catch panic: %s\nStack is:\n%s", e.(error), string(runtimeDebug.Stack()))
+			msg.End = true
+		}
+	}()
 	msg.loadUdhi()
 	if msg.DscUSC2 {
 		var buf []byte
@@ -304,22 +339,33 @@ func (msg *message) Scan(src *bytes.Buffer) {
 	msg.loadTpSca()
 	msg.loadMti()
 	msg.loadTpOa()
-
-	// Report SMS
-	if msg.MtiSmsType == TypeSmsStatusReport {
+	// Type of SMS
+	switch msg.MtiSmsType {
+	case TypeSmsStatusReport, TypeSmsSubmitReport, TypeSmsDeliverReport:
 		// The service centre time stamp (TP-SCTS)
 		msg.ServiceCentreTimeStamp = msg.loadTimeStamp()
 		// Discharge Time - The TP-DT field indicates the time and date associated with a particular TP-ST outcome
 		msg.TpDischargeTime = msg.loadTimeStamp()
 		msg.loadStatusReport()
-	} else {
+	default:
 		// Normal SMS
-		msg.loadPid()
-		msg.loadDsc()
+		if msg.loadPid(); msg.Err != nil && msg.End {
+			return
+		}
+		if msg.loadDsc(); msg.Err != nil && msg.End {
+			return
+		}
 		// The service centre time stamp (TP-SCTS)
 		msg.ServiceCentreTimeStamp = msg.loadTimeStamp()
-		msg.loadUd()
-		msg.decodeUD()
+		if msg.Err != nil && msg.End {
+			return
+		}
+		if msg.loadUd(); msg.Err != nil && msg.End {
+			return
+		}
+		if msg.decodeUD(); msg.Err != nil && msg.End {
+			return
+		}
 	}
 
 	// Clean
@@ -337,7 +383,7 @@ func (msg *message) Scan(src *bytes.Buffer) {
 	}
 
 	// Number of parts
-	if msg.UdhiNumberParts == 1 {
+	if msg.UdhiNumberParts <= 1 {
 		msg.End = true
 		return
 	}

@@ -44,7 +44,7 @@ func destructor(pdu *impl) {
 }
 
 // Done Waiting for processing all incoming messages
-func (pdu *impl) Done() { pdu.doCount.Wait() }
+func (pdu *impl) Done() { pdu.doCount.Wait(); pdu.CheckIncomleteMessages(true) }
 
 // Worker Goroudine read and decode messages
 func (pdu *impl) Worker() {
@@ -52,6 +52,7 @@ func (pdu *impl) Worker() {
 	var exit bool
 	var buf *bytes.Buffer
 	//	var tmr = time.NewTicker(time.Second)
+
 	//	defer tmr.Stop()
 	for !exit {
 		select {
@@ -66,8 +67,7 @@ func (pdu *impl) Worker() {
 				}
 			}(buf)
 			//		case <-tmr.C:
-			//			pdu.CheckIncomleteMessages()
+			//			pdu.CheckIncomleteMessages(false)
 		}
-
 	}
 }
