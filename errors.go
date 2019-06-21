@@ -11,4 +11,6 @@ var (
 	ErrIncorrectPDUdata = fmt.Errorf("Incorrect PDU data")
 	// ErrNoValudRecipientNumber You must specify the valid recipient address
 	ErrNoValudRecipientNumber = fmt.Errorf("You must specify the valid recipient address")
+	// ErrEncodingNotImplementedForRecipientNumber Encoding not implemented for type of recipient address
+	ErrEncodingNotImplementedForRecipientNumber = fmt.Errorf("Encoding not implemented for type of recipient address")
 )

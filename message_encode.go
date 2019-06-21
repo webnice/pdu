@@ -43,9 +43,10 @@ func (msg *message) makeSca() (ret *bytes.Buffer) {
 func (msg *message) makeTpDa() (ret *bytes.Buffer) {
 	var num uint64
 	var buf []byte
+
 	ret = bytes.NewBufferString(``)
 	switch msg.TpOaType {
-	case NumberTypeInternational:
+	case NumberTypeInternational, NumberTypeInternal, NumberTypeService:
 		num, msg.Err = strconv.ParseUint(msg.TpOaNumber, 0, 64)
 		if msg.Err != nil {
 			return
@@ -63,10 +64,14 @@ func (msg *message) makeTpDa() (ret *bytes.Buffer) {
 			buf = nb
 		}
 		ret.WriteString(hex.EncodeToString(buf))
+	case NumberTypeSubscriber, NumberTypeAlphanumeric, NumberTypeReduced:
+		msg.Err = ErrEncodingNotImplementedForRecipientNumber
+		return
 	default:
 		msg.Err = ErrNoValudRecipientNumber
 		return
 	}
+
 	return
 }
 
