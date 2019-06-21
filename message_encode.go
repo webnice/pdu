@@ -46,7 +46,7 @@ func (msg *message) makeTpDa() (ret *bytes.Buffer) {
 
 	ret = bytes.NewBufferString(``)
 	switch msg.TpOaType {
-	case NumberTypeInternational, NumberTypeInternal, NumberTypeService:
+	case NumberTypeUnknown, NumberTypeInternational:
 		num, msg.Err = strconv.ParseUint(msg.TpOaNumber, 0, 64)
 		if msg.Err != nil {
 			return
@@ -64,7 +64,7 @@ func (msg *message) makeTpDa() (ret *bytes.Buffer) {
 			buf = nb
 		}
 		ret.WriteString(hex.EncodeToString(buf))
-	case NumberTypeSubscriber, NumberTypeAlphanumeric, NumberTypeReduced:
+	case NumberTypeAlphanumeric, NumberTypeReduced, NumberTypeInternal, NumberTypeService, NumberTypeSubscriber:
 		msg.Err = ErrEncodingNotImplementedForRecipientNumber
 		return
 	default:

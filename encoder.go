@@ -47,7 +47,7 @@ func (pdu *impl) setTpOa(m *message, addr string) (err error) {
 		m.TpOaType = NumberTypeInternational
 		m.TpOaNumericPlan = NumericPlanInternational
 		if len(m.TpOaNumber) <= 5 {
-			m.TpOaType = NumberTypeInternal
+			m.TpOaType = NumberTypeUnknown
 		}
 	case false:
 		m.TpOaType = NumberTypeAlphanumeric
